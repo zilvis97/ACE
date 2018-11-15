@@ -2,30 +2,37 @@
 #include <stdlib.h>
 #include <math.h>
 
-/*
-0 HALT (break)
-1 ADD
-2 SUB
-3 LOAD
-4 STORE
-5 INPUT
-6 OUTPUT
-7 SKIP
-*/
+/* 0 HALT (break)1 ADD2 SUB3 LOAD4 STORE5 INPUT6 OUTPUT7 SKIP*/
 
+/*
+1. take input as a string
+2. convert string to dec with toDec() and store in memory
+3. converting to binary function toBinary() allows us to chose which part we want opcode or operand
+4. from binary num gained in step 3 we can convert opcode/operand to decimal separately
+5. when working with AC take memory value convert it to two's complement, when storing ac to memory convert it back to non twos complement
+*/
 //or store convert binary -> dec to store the mem
 
-void disasm(char buff[][17], int size);
-char *printOperation(int code);
-int toDec(char *operand, int length);
-long long int toBinary(int dec, int opcode_true);
+char *getOperation(int code);
+int toDec(char *operand);
+long long toBinary(int dec, int opcode_true);
+int toDecimalFromBinary(long long n);
+void printOperand(int dec);
+void printNonEmptyMemory();
+int twosComplement(int dec);
+int toDecFromComplement(int compl);
+
+void load(int operand); //pass operand decimal
+void store(int operand);
 
 int mem[4096];
+int ac_reg;
 
+//int argc, string args[]
 int main()
 {
     FILE *fp = fopen("labas.txt", "r");
-    //FILE *write = fopen("rasom.txt", "w+");
+
     char buff[4096][17];
     int buff_index = 0, i;
 
@@ -39,49 +46,87 @@ int main()
     for(i = 0; i < buff_index; i++) {
         printf("%d --- %s\n", i, buff[i]);
     }
+    printf("\n====================================================================\n");
 
-    //disasm(buff, buff_index);
+    //convert binary string to decimal and store to memory
+    for(i = 0; i < buff_index; i++) {
+        int instruction = toDec(buff[i]);
+        mem[i] = instruction;
+        //printf("%d --- %d", i, mem[i]);
+        long long val = toBinary(mem[i], 1);
+        printf("%s", getOperation(val));
+        printOperand(toDecimalFromBinary(toBinary(mem[i], 0)));
+    }
+
+    printf("\n====================================================================\n");
 
     for(i = 0; i < buff_index; i++) {
-        int instruction = toDec(buff[i], 16);
-        mem[i] = instruction;
-        printf("%d --- %d", i, mem[i]);
-        long long int val = toBinary(mem[i], 0);
-        printf("--- OPCODE --- %lli", toBinary(mem[i], 1));
-        printf("--- OPERAND --- %lli", toBinary(mem[i], 0));
-        printf(" DECIMAL FROM OPERAND --- %d\n", toDecimalFromBinary(val));
+        char operation[20];
+        strcpy(operation, getOperation(toBinary(mem[i], 1)));
+//        switch(operation) {
+//            case "HALT":
+//                printf("END OF PROGRAM - HALT\n");
+//                return 0;
+//            case "ADD":
+//                add();
+//                break;
+//            case "SUB":
+//                sub();
+//                break;
+//            case "LOAD":
+//                load(mem[i]);
+//                break;
+//            case "STORE":
+//                store(mem[i]);
+//                break;
+//            case "INPUT":
+//                input();
+//                break;
+//            case "OUTPUT":
+//                output();
+//                break;
+//            case "JUMP"
+//                jump();
+//                break;
+//            case "SKIPCOND":
+//                skipcond();
+//                break;
+//        }
+        if(strcmp(getOperation(toBinary(mem[i], 1)), "LOAD") == 0) {
+            load(toDecimalFromBinary(toBinary(mem[i], 0)));
+            printf("AC - %d\n", ac_reg);
+        }
+
+        if(strcmp(getOperation(toBinary(mem[i], 1)), "STORE") == 0) {
+            store(toDecimalFromBinary(toBinary(mem[i], 0)));
+        }
     }
+
+    printf("\n====================================================================\n");
+    printNonEmptyMemory();
 
     fclose(fp);
     return 0;
 }
 
-void disasm(char buff[][17], int size)
-{
-    int i;
-    for(i = 0; i < size; i++) {
-        int opcode, operand_dec, instruction;
-        char *ptr = *(buff+i)+4;    //pointing to start of operand (5th character)
-        char opcd[5] = "\0", operand[13] = "\0";
-
-        strncpy(opcd, buff[i], 4);  //copy opcode to temp
-        strncpy(operand, ptr, 12);  //copy operand to operand
-
-        opcode = atoi(opcd);
-        //operand_dec = toDec(operand);
-        instruction = toDec(buff[i], 16);
-        mem[i] = instruction;
-
-        printf("%s --- %s --- OPERAND: --- %s DECIMAL - %d\n", buff[i], printOperation(opcode), operand, instruction);
-
-        //toBinary(instruction);
-    }
+void load(int operand) {
+    ac_reg = twosComplement(mem[operand]);
 }
 
-int toDec(char *instr, int length) {
+void store(int operand) {
+    mem[operand] = toDecFromComplement(ac_reg);  //convert to non twos complement
+    printf("\nSTORING %d in %d, MEMORY NOW %d", ac_reg, operand, mem[operand]);
+}
+
+//to decimal from a string
+int toDec(char *instr) {
     int i, decnum = 0, multiplier = 1;
 
-    for(i = length-1; i >= 0; i--) {
+    for(i = 15; i >= 0; i--) {
+//        if(i == 0 && instr[i] == '1') {
+//            decnum -= multiplier;
+//            return decnum;
+//        }
         if(instr[i] == '1') {
             decnum += multiplier;
         }
@@ -91,22 +136,56 @@ int toDec(char *instr, int length) {
     return decnum;
 }
 
+//to decimal from a long long number
 int toDecimalFromBinary(long long n) {
-    int dec = 0, i = 0, remainder;
+    int dec = 0, i = 0, multiplier = 1, remainder;
 
     while(n != 0) {
         remainder = n % 10;
         n /= 10;
-        dec += remainder * pow(2, i);
+        dec += remainder * multiplier;
+        multiplier *= 2;
         i++;
     }
     return dec;
 }
 
-long long int toBinary(int dec, int opcode_true)
-{
+int twosComplement(int dec) {
+    int binarynum[16] = {0}, i = 15, j, number = 0, multiplier = 1;
+
+    while(dec > 0) {
+        binarynum[i] = dec % 2;
+        dec /= 2;
+        i--;
+    }
+
+    for(j = 15; j >= 0; j--) {
+        if(j == 0 && binarynum[j] == 1) {
+            number -= multiplier;
+            return number;
+        }
+        if(binarynum[j] == 1 && j != 0) {
+            number += multiplier;
+        }
+        multiplier *= 2;
+    }
+    return number;
+}
+
+int toDecFromComplement(int compl) {
+    if(compl < 0) {
+        return (compl + 65536);
+    }
+    else {
+        return compl;
+    }
+}
+
+//convert to binary long long number, opcode_true specifies
+//if we want opcode or operand to be converted
+long long toBinary(int dec, int opcode_true) {
     int binarynum[16] = {0}, i = 15, j;
-    long long int ret = 0;
+    long long ret = 0;
 
     while(dec > 0) {
         binarynum[i] = dec % 2;
@@ -126,18 +205,50 @@ long long int toBinary(int dec, int opcode_true)
         }
         return ret;
     }
-
-//    printf("\nBINARY - ");
-//    for(j = 0; j < 16; j++) {
-//        printf("%d", binarynum[j]);
-//    }
-//    printf("\n");
 }
 
-char *printOperation(int code) {
+void printNonEmptyMemory() {
+    int i;
+
+    for(i = 0; i < 4096; i++) {
+        if(mem[i] != 0) {
+            printf("%d. %d --- TWOS COMPLEMENT %d --- NORMAL DEC %d\n", i, mem[i], twosComplement(mem[i]), toDecFromComplement(twosComplement(mem[i])));
+        }
+    }
+}
+
+//convertinti is decimal i binary ir tuo paciu addinti i stringa
+void printOperand(int dec) {
+    char bin[13] = {'0'};
+    int binarynum[12] = {0}, i = 11, j;
+
+    while(dec > 0) {
+        binarynum[i] = dec % 2;
+        dec /= 2;
+        i--;
+    }
+
+    for(j = 0; j < 12; j++) {
+        if(binarynum[j] == 1) {
+            bin[j] = '1';
+        }
+        else {
+            bin[j] = '0';
+        }
+    }
+
+    printf(" ");
+    for (j = 0; j < 12; j++) {
+        printf("%d", binarynum[j]);
+    }
+    //printf("-----%s", bin);
+    printf("\n");
+}
+
+char *getOperation(int code) {
     switch(code) {
         case 0:
-            return "HLT";
+            return "HALT";
         case 1:
             return "ADD";
         case 10:
@@ -153,7 +264,7 @@ char *printOperation(int code) {
         case 111:
             return "SKIPCOND";
         case 1000:
-            return "JMP";
+            return "JUMP";
         case 1001:
             return "AND";
         case 1010:
