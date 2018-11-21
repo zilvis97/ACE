@@ -22,8 +22,12 @@ void printNonEmptyMemory();
 int twosComplement(int dec);
 int toDecFromComplement(int compl);
 
+void add(int operand);
+void sub(int operand);
 void load(int operand); //pass operand decimal
 void store(int operand);
+void input();
+void output();
 
 int mem[4096];
 int ac_reg;
@@ -35,6 +39,9 @@ int main()
 
     char buff[4096][17];
     int buff_index = 0, i;
+
+    mem[16] = 25;
+    mem[17] = 20;
 
     while(!feof(fp)) {
         char temp[17];
@@ -62,44 +69,44 @@ int main()
 
     for(i = 0; i < buff_index; i++) {
         char operation[20];
-        strcpy(operation, getOperation(toBinary(mem[i], 1)));
-//        switch(operation) {
-//            case "HALT":
-//                printf("END OF PROGRAM - HALT\n");
-//                return 0;
-//            case "ADD":
-//                add();
-//                break;
-//            case "SUB":
-//                sub();
-//                break;
-//            case "LOAD":
-//                load(mem[i]);
-//                break;
-//            case "STORE":
-//                store(mem[i]);
-//                break;
-//            case "INPUT":
-//                input();
-//                break;
-//            case "OUTPUT":
-//                output();
-//                break;
-//            case "JUMP"
+        //strcpy(operation, getOperation(toBinary(mem[i], 1)));
+        switch(toBinary(mem[i], 1)) {
+            case 0:
+                printf("END OF PROGRAM - HALT\n");
+                return 0;
+            case 1:
+                add(toDecimalFromBinary(toBinary(mem[i], 0)));
+                break;
+            case 10:
+                sub(toDecimalFromBinary(toBinary(mem[i], 0)));
+                break;
+            case 11:
+                load(toDecimalFromBinary(toBinary(mem[i], 0)));
+                break;
+            case 100:
+                store(toDecimalFromBinary(toBinary(mem[i], 0)));
+                break;
+            case 101:
+                input();
+                break;
+            case 110:
+                output();
+                break;
+//            case 111:
 //                jump();
 //                break;
-//            case "SKIPCOND":
+//            case 1000:
 //                skipcond();
 //                break;
+        }
+//        if(strcmp(getOperation(toBinary(mem[i], 1)), "LOAD") == 0) {
+//            load(toDecimalFromBinary(toBinary(mem[i], 0)));
+//            printf("AC = %d\n", ac_reg);
 //        }
-        if(strcmp(getOperation(toBinary(mem[i], 1)), "LOAD") == 0) {
-            load(toDecimalFromBinary(toBinary(mem[i], 0)));
-            printf("AC - %d\n", ac_reg);
-        }
-
-        if(strcmp(getOperation(toBinary(mem[i], 1)), "STORE") == 0) {
-            store(toDecimalFromBinary(toBinary(mem[i], 0)));
-        }
+//
+//        if(strcmp(getOperation(toBinary(mem[i], 1)), "STORE") == 0) {
+//            store(toDecimalFromBinary(toBinary(mem[i], 0)));
+//        }
     }
 
     printf("\n====================================================================\n");
@@ -109,14 +116,48 @@ int main()
     return 0;
 }
 
+void add(int operand) {
+    ac_reg += twosComplement(mem[operand]);
+    printf("after ADD AC = %d\n", ac_reg);
+}
+
+void sub(int operand) {
+    ac_reg -= twosComplement(mem[operand]);
+    printf("after SUB AC = %d\n", ac_reg);
+}
+
 void load(int operand) {
     ac_reg = twosComplement(mem[operand]);
+    printf("Loaded %d from AC from memory location: %d\n", ac_reg, operand);
 }
 
 void store(int operand) {
     mem[operand] = toDecFromComplement(ac_reg);  //convert to non twos complement
-    printf("\nSTORING %d in %d, MEMORY NOW %d", ac_reg, operand, mem[operand]);
+    printf("\nSTORING %d in %d, MEMORY NOW %d\n", ac_reg, operand, mem[operand]);
 }
+
+void input() {
+    int x;
+
+	printf("Enter a number to be placed in the Accumulator: ");
+	while((scanf("%d", &x) != 1) || !((x > -32768) && (x < 32767))) {
+        printf("INVALID INPUT\n");
+        printf("Enter a number to be placed in the Accumulator: ");
+
+        int chr;
+        do {
+            chr = getchar();
+        }
+        while((chr != EOF) && (chr != '\n'));   //clear input buffer
+	}
+
+    ac_reg = x;
+}
+
+void output() {
+	printf("AC = %d\n", twosComplement(ac_reg));
+}
+
 
 //to decimal from a string
 int toDec(char *instr) {
@@ -219,7 +260,7 @@ void printNonEmptyMemory() {
 
 //convertinti is decimal i binary ir tuo paciu addinti i stringa
 void printOperand(int dec) {
-    char bin[13] = {'0'};
+    //char bin[13] = {'0'};
     int binarynum[12] = {0}, i = 11, j;
 
     while(dec > 0) {
@@ -228,14 +269,14 @@ void printOperand(int dec) {
         i--;
     }
 
-    for(j = 0; j < 12; j++) {
-        if(binarynum[j] == 1) {
-            bin[j] = '1';
-        }
-        else {
-            bin[j] = '0';
-        }
-    }
+//    for(j = 0; j < 12; j++) {
+//        if(binarynum[j] == 1) {
+//            bin[j] = '1';
+//        }
+//        else {
+//            bin[j] = '0';
+//        }
+//    }
 
     printf(" ");
     for (j = 0; j < 12; j++) {
@@ -256,11 +297,11 @@ char *getOperation(int code) {
         case 11:
             return "LOAD";
         case 100:
-            return"STORE";
+            return "STORE";
         case 101:
-            return"INPUT";
+            return "INPUT";
         case 110:
-            return"OUTPUT";
+            return "OUTPUT";
         case 111:
             return "SKIPCOND";
         case 1000:
