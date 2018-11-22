@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 /* 0 HALT (break)1 ADD2 SUB3 LOAD4 STORE5 INPUT6 OUTPUT7 SKIP*/
 
@@ -21,125 +22,167 @@ void printOperand(int dec);
 void printNonEmptyMemory();
 int twosComplement(int dec);
 int toDecFromComplement(int compl);
+void loadDefaultMemory();
+int fileInput(char *filename);
+int manualInput();
 
-void add(int operand);
-void sub(int operand);
-void load(int operand); //pass operand decimal
-void store(int operand);
-void input();
-void output();
+void add(int mbr);
+void sub(int mbr);
+void load(int mar); //pass operand decimal
+void store(int mar);
+void input(int *in_reg);
+void output(int *out_reg);
 
 int mem[4096];
 int ac_reg;
+int status_flag = 0;
+int pc = 0, instr_reg, mbr, mar, in_reg, out_reg;
 
 //int argc, string args[]
-int main()
+int main(int argc, char *argv[])
 {
-    FILE *fp = fopen("labas.txt", "r");
+    //FILE *fp = fopen("test-program-1.txt", "r");
 
-    char buff[4096][17];
-    int buff_index = 0, i;
+    //char buff[4096][17];
+    int halt = 0, i;
 
-    mem[16] = 25;
-    mem[17] = 20;
-
-    while(!feof(fp)) {
-        char temp[17];
-        fscanf(fp, "%s", temp);
-        strcpy(buff[buff_index], temp);
-        buff_index++;
+    if(argc < 2) {
+        printf("Not enough arguments provided.\n-d for default memory input\n-f for memory input from file\n-c for entering memory from command line\n");
+        return 0;
+    }
+    if(argc >= 2) {
+        if(!strcmp(argv[1], "-d")) {
+            loadDefaultMemory();
+        }
+        else if(!strcmp(argv[1], "-c")) {
+            while(manualInput()) {}
+        }
+        else if(argc == 3 && !strcmp(argv[1], "-f")) {
+            char *file_name = argv[2];
+            if(fileInput(file_name) == -1) {
+                return 0;
+            }
+        }
+        else {
+            printf("Wrong argument provided.\n-d for default memory input\n-f for memory input from file\n-c for entering memory from command line\n");
+        }
     }
 
-    for(i = 0; i < buff_index; i++) {
-        printf("%d --- %s\n", i, buff[i]);
-    }
-    printf("\n====================================================================\n");
+//    while(!feof(fp)) {
+//        char temp[17];
+//        fscanf(fp, "%s", temp);
+//        strcpy(buff[buff_index], temp);
+//        printf("%d --- %s\n", buff_index, buff[buff_index]);
+//        buff_index++;
+//    }
+//
+//    printf("\n====================================================================\n");
 
     //convert binary string to decimal and store to memory
-    for(i = 0; i < buff_index; i++) {
-        int instruction = toDec(buff[i]);
-        mem[i] = instruction;
-        //printf("%d --- %d", i, mem[i]);
-        long long val = toBinary(mem[i], 1);
-        printf("%s", getOperation(val));
-        printOperand(toDecimalFromBinary(toBinary(mem[i], 0)));
-    }
+//    for(i = 0; i < buff_index; i++) {
+//        int instruction = toDec(buff[i]);
+//        mem[i] = instruction;
+//        //printf("%d --- %d", i, mem[i]);
+//        long long val = toBinary(mem[i], 1);
+//        printf("%s", getOperation(val));
+//        printOperand(toDecimalFromBinary(toBinary(mem[i], 0)));
+//        printf("DECIMAL REP = %d\n", instruction);
+//    }
+//
+//    printf("\n====================================================================\n");
 
-    printf("\n====================================================================\n");
-
-    for(i = 0; i < buff_index; i++) {
-        char operation[20];
-        //strcpy(operation, getOperation(toBinary(mem[i], 1)));
-        switch(toBinary(mem[i], 1)) {
+    while(!halt) {
+        mar = pc;
+        instr_reg = mem[mar];
+        pc++;
+        int opcode = toBinary(instr_reg, 1);
+        mar = toDecimalFromBinary(toBinary(instr_reg, 0));  //operand
+        switch(opcode) {
             case 0:
                 printf("END OF PROGRAM - HALT\n");
-                return 0;
+                halt = 1;
+                break;
             case 1:
-                add(toDecimalFromBinary(toBinary(mem[i], 0)));
+                mbr = mem[mar];
+                add(mbr);
                 break;
             case 10:
-                sub(toDecimalFromBinary(toBinary(mem[i], 0)));
+                mbr = mem[mar];
+                sub(mbr);
                 break;
             case 11:
-                load(toDecimalFromBinary(toBinary(mem[i], 0)));
+                mbr = mem[mar];
+                load(mar);
                 break;
             case 100:
-                store(toDecimalFromBinary(toBinary(mem[i], 0)));
+                mbr = mem[mar];
+                store(mar);
                 break;
             case 101:
-                input();
+                input(&in_reg);
                 break;
             case 110:
-                output();
+                out_reg = twosComplement(ac_reg);
+                output(&out_reg);
                 break;
-//            case 111:
-//                jump();
+            case 111:
+                //skipcond();
 //                break;
-//            case 1000:
-//                skipcond();
-//                break;
+            case 1000:
+                pc = mar;
+                printf("JUMPING TO %d IN MEMORY\n", pc);
+                break;
         }
-//        if(strcmp(getOperation(toBinary(mem[i], 1)), "LOAD") == 0) {
-//            load(toDecimalFromBinary(toBinary(mem[i], 0)));
-//            printf("AC = %d\n", ac_reg);
-//        }
-//
-//        if(strcmp(getOperation(toBinary(mem[i], 1)), "STORE") == 0) {
-//            store(toDecimalFromBinary(toBinary(mem[i], 0)));
-//        }
     }
 
     printf("\n====================================================================\n");
     printNonEmptyMemory();
 
-    fclose(fp);
+//    fclose(fp);
     return 0;
 }
 
-void add(int operand) {
-    ac_reg += twosComplement(mem[operand]);
-    printf("after ADD AC = %d\n", ac_reg);
+void add(int mbr) {
+    int temp = ac_reg + twosComplement(mbr);
+
+    if((temp >= 0 && ((temp % 32767 != temp) && (temp % 32767 != 0))) || (temp < 0 && (temp % 32768 != temp) && (temp % 32768 != 0))) {
+        status_flag = 1;
+        printf("OVERFLOW DETECTED\n");
+    }
+
+    ac_reg = twosComplement(toDecFromComplement(ac_reg) + mbr);
+
+    printf("ADD --- AC = %d\n", ac_reg);
 }
 
-void sub(int operand) {
-    ac_reg -= twosComplement(mem[operand]);
-    printf("after SUB AC = %d\n", ac_reg);
+void sub(int mbr) {
+    int temp = ac_reg - twosComplement(mbr);
+
+    if((temp >= 0 && ((temp % 32767 != temp) && (temp % 32767 != 0))) || (temp < 0 && (temp % 32768 != temp) && (temp % 32768 != 0))) {
+        status_flag = 1;
+        printf("OVERFLOW DETECTED\n");
+    }
+    //printf("MBR %d - MBR TWOS - %d - AC %d\n", mbr, twosComplement(mbr), ac_reg);
+
+    ac_reg = twosComplement(toDecFromComplement(ac_reg - twosComplement(mbr)));
+
+    printf("SUB --- AC = %d\n", ac_reg);
 }
 
-void load(int operand) {
-    ac_reg = twosComplement(mem[operand]);
-    printf("Loaded %d from AC from memory location: %d\n", ac_reg, operand);
+void load(int mar) {
+    ac_reg = twosComplement(mem[mar]);
+    printf("Loaded %d from AC from memory location: %d\n", ac_reg, mar);
 }
 
-void store(int operand) {
-    mem[operand] = toDecFromComplement(ac_reg);  //convert to non twos complement
-    printf("\nSTORING %d in %d, MEMORY NOW %d\n", ac_reg, operand, mem[operand]);
+void store(int mar) {
+    mem[mar] = toDecFromComplement(ac_reg);  //convert to unsigned representation from twos compl
+    printf("\nSTORING %d in %d, MEMORY NOW %d\n", ac_reg, mar, mem[mar]);
 }
 
-void input() {
+void input(int *in_reg) {
     int x;
 
-	printf("Enter a number to be placed in the Accumulator: ");
+	printf("INPUT: Enter a number to be placed in the Accumulator: ");
 	while((scanf("%d", &x) != 1) || !((x > -32768) && (x < 32767))) {
         printf("INVALID INPUT\n");
         printf("Enter a number to be placed in the Accumulator: ");
@@ -150,26 +193,26 @@ void input() {
         }
         while((chr != EOF) && (chr != '\n'));   //clear input buffer
 	}
+        *in_reg = x;
+        printf("IN_REG = %d\n", in_reg);
+        ac_reg = x;
+    }
 
-    ac_reg = x;
+void output(int *out_reg) {
+	printf("AC = %d\n", out_reg);
 }
-
-void output() {
-	printf("AC = %d\n", twosComplement(ac_reg));
-}
-
 
 //to decimal from a string
 int toDec(char *instr) {
     int i, decnum = 0, multiplier = 1;
 
     for(i = 15; i >= 0; i--) {
-//        if(i == 0 && instr[i] == '1') {
-//            decnum -= multiplier;
-//            return decnum;
-//        }
         if(instr[i] == '1') {
             decnum += multiplier;
+        }
+        if(isalpha(instr[i])) {
+            printf("Bad input\n");
+            return -1;
         }
         multiplier *= 2;
     }
@@ -215,7 +258,7 @@ int twosComplement(int dec) {
 
 int toDecFromComplement(int compl) {
     if(compl < 0) {
-        return (compl + 65536);
+        return (compl + 32768 + 32768);
     }
     else {
         return compl;
@@ -246,6 +289,75 @@ long long toBinary(int dec, int opcode_true) {
         }
         return ret;
     }
+}
+
+void loadDefaultMemory() {
+    int default_mem[] = {12297, 4104, 8201, 32773, 32772, 32774, 20480, 32778, 16394, 12298, 4106, 0};
+    int i, mem_size = sizeof(default_mem) / sizeof(int);
+
+    for(i = 0; i < mem_size; i++) {
+        mem[i] = default_mem[i];
+    }
+}
+
+int manualInput() {
+    char input[17] = "";
+
+    printf("Enter an instruction to be stored in memory:\n");
+    gets(input);
+
+    if(!strcmp(input, "stop") || !strcmp(input, "exit")) {
+        printf("\nStopping manual input mode\n");
+        return 0;
+    }
+    else {
+        int i, input_dec = toDec(input);
+
+        if(input_dec == -1) {
+            printf("Invalid input. Please enter non alphabetical instruction\n");
+            return 1;
+        }
+        for(i = 0; i < 4096; i++) {
+            if(mem[i] == 0) {
+                mem[i] = input_dec;
+                printf("Stored %d in memory location %d\n", input_dec, i);
+                break;
+            }
+        }
+        return 1;
+    }
+}
+
+int fileInput(char *filename) {
+    FILE *fp = fopen(filename, "r");
+    char buff[4096][17];
+    int buff_index = 0, i;
+
+    if(fp == NULL) {
+        printf("Provided file '%s' does not exist\n", filename);
+        return -1;
+    }
+
+    while(!feof(fp)) {
+        char temp[17];
+        fscanf(fp, "%s", temp);
+        strcpy(buff[buff_index], temp);
+        printf("%d --- %s\n", buff_index, buff[buff_index]);
+        buff_index++;
+    }
+    printf("\n====================================================================\n");
+
+    for(i = 0; i < buff_index; i++) {
+        int instruction = toDec(buff[i]);
+        mem[i] = instruction;
+        long long val = toBinary(mem[i], 1);
+        printf("%s", getOperation(val));
+        printOperand(toDecimalFromBinary(toBinary(mem[i], 0)));
+        printf("DECIMAL REP = %d\n", instruction);
+    }
+    printf("\n====================================================================\n");
+
+    fclose(fp);
 }
 
 void printNonEmptyMemory() {
