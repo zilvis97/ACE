@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
                 mbr = mem[mar];
                 add(mbr);
                 break;
-            cas e 10:
+            case 10:
                 mbr = mem[mar];
                 sub(mbr);
                 break;
